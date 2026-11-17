@@ -22,7 +22,10 @@ REGION_LABELS = {
 }
 
 
-def sort_texts_reading_order(texts: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def group_texts_into_lines(
+    texts: Sequence[Dict[str, Any]],
+) -> List[List[Dict[str, Any]]]:
+    """按视觉行聚类文本项，返回从上到下、行内从左到右的分组。"""
     if not texts:
         return []
 
@@ -75,11 +78,39 @@ def sort_texts_reading_order(texts: Sequence[Dict[str, Any]]) -> List[Dict[str, 
             matched["y2"] = max(entry["y2"] for entry in matched["items"])
 
     lines.sort(key=lambda line: line["y1"])
-    ordered: List[Dict[str, Any]] = []
+    grouped: List[List[Dict[str, Any]]] = []
     for line in lines:
         line["items"].sort(key=lambda item: item["x1"])
-        ordered.extend(item["text"] for item in line["items"])
+        grouped.append([item["text"] for item in line["items"]])
+    return grouped
+
+
+def sort_texts_reading_order(texts: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """摊平视觉行并给每个文本项标注所属行号，供排版文本换行使用。"""
+    ordered: List[Dict[str, Any]] = []
+    for line_index, group in enumerate(group_texts_into_lines(texts)):
+        for text in group:
+            ordered.append({**text, "line": line_index})
     return ordered
+
+
+def _needs_space(left: str, right: str) -> bool:
+    if not left or not right or left.isspace() or right.isspace():
+        return False
+    return left.isascii() and right.isascii() and (left.isalnum() or right.isalnum())
+
+
+def _join_line_text(texts: Sequence[Dict[str, Any]]) -> List[str]:
+    """把同一视觉行的文本拼成一行，并保留文本内部已有的换行符。"""
+    joined = ""
+    for text in texts:
+        part = str(text["text"]).strip()
+        if not part:
+            continue
+        if joined and _needs_space(joined[-1], part[0]):
+            joined += " "
+        joined += part
+    return [line.strip() for line in joined.split("\n") if line.strip()]
 
 
 class MergeService:
@@ -186,7 +217,8 @@ class MergeService:
             lines = [f"[{label} {region['id']}] bbox=[{bbox}]"]
 
             if include_texts:
-                lines.extend(f"  {item['text']}" for item in texts_by_region.get(region["id"], []))
+                for group in self._group_by_line(texts_by_region.get(region["id"], [])):
+                    lines.extend(f"  {line}" for line in _join_line_text(group))
 
             blocks.append(
                 {
@@ -198,18 +230,41 @@ class MergeService:
             )
 
         if include_texts:
-            for text in standalone_texts:
+            for group in self._group_by_line(standalone_texts):
                 blocks.append(
                     {
                         "kind": "text",
-                        "y": text["bbox"][1],
-                        "x": text["bbox"][0],
-                        "content": text["text"],
+                        "y": min(text["bbox"][1] for text in group),
+                        "x": min(text["bbox"][0] for text in group),
+                        "content": "\n".join(_join_line_text(group)),
                     }
                 )
 
         blocks.sort(key=lambda item: (item["y"], item["x"]))
-        return "\n\n".join(block["content"] for block in blocks)
+        parts: List[str] = []
+        previous_kind: Optional[str] = None
+        for block in blocks:
+            if parts:
+                separator = (
+                    "\n\n"
+                    if block["kind"] == "region" or previous_kind == "region"
+                    else "\n"
+                )
+                parts.append(separator)
+            parts.append(block["content"])
+            previous_kind = block["kind"]
+        return "".join(parts)
+
+    @staticmethod
+    def _group_by_line(texts: Sequence[Dict[str, Any]]) -> List[List[Dict[str, Any]]]:
+        if not texts:
+            return []
+        if all(isinstance(text.get("line"), int) for text in texts):
+            grouped: Dict[int, List[Dict[str, Any]]] = defaultdict(list)
+            for text in texts:
+                grouped[text["line"]].append(text)
+            return [grouped[key] for key in sorted(grouped)]
+        return group_texts_into_lines(texts)
 
     @staticmethod
     def new_request_id() -> str:

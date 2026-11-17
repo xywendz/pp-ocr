@@ -54,6 +54,7 @@ class TextItem(BaseModel):
     bbox: List[float]
     polygon: List[List[float]]
     region: Optional[RegionRef] = None
+    line: Optional[int] = None
 
 
 class AnalyzeResponse(BaseModel):
