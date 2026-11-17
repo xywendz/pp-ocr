@@ -1,0 +1,45 @@
+# VCS and ignore files
+.git
+.gitignore
+.dockerignore
+
+# Local environments and secrets
+.venv
+venv
+env
+.env
+.env.*
+!.env.example
+
+# Model artifacts are downloaded during build and mounted as a volume
+models
+
+# Python bytecode / caches
+__pycache__
+*.py[cod]
+*.so
+
+# Test and tooling caches
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+coverage.xml
+htmlcov
+tests
+
+# Files not needed in the image
+README.md
+requirements-dev.txt
+
+# IDE / editor / OS
+.idea
+.vscode
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+tmp
+temp

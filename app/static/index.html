@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PP-OCR 图文识别工作台</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">OCR</span>
+      <div>
+        <h1>图文识别工作台</h1>
+        <p>PP-DocLayout-M + PP-OCRv6 Medium · ONNX Runtime</p>
+      </div>
+    </div>
+    <div id="modelStatus" class="status status-loading">模型状态检查中…</div>
+  </header>
+
+  <main class="layout">
+    <section class="panel controls-panel">
+      <h2>1. 上传图片</h2>
+      <label id="dropzone" class="dropzone" for="fileInput">
+        <input id="fileInput" type="file" accept="image/jpeg,image/png,image/bmp,image/webp" hidden />
+        <strong>点击选择图片</strong>
+        <span>或拖拽图片到此处 · JPG / PNG / BMP / WEBP · 最大 20 MB</span>
+      </label>
+      <div id="fileName" class="file-name">尚未选择文件</div>
+
+      <h2>2. 识别选项</h2>
+      <div class="form-grid">
+        <label>区域类型
+          <input id="regionTypes" type="text" value="image,chart,header_image,footer_image" />
+        </label>
+        <label>版面阈值 <span id="layoutValue">0.50</span>
+          <input id="layoutThreshold" type="range" min="0" max="1" step="0.05" value="0.5" />
+        </label>
+        <label>OCR 阈值 <span id="ocrValue">0.50</span>
+          <input id="ocrThreshold" type="range" min="0" max="1" step="0.05" value="0.5" />
+        </label>
+        <label>区域关联
+          <select id="association">
+            <option value="hybrid" selected>hybrid</option>
+            <option value="center">center</option>
+            <option value="iou">iou</option>
+          </select>
+        </label>
+        <label>区域内文字
+          <select id="textInRegion">
+            <option value="annotate" selected>保留并标注</option>
+            <option value="include">保留不标注</option>
+            <option value="exclude">忽略</option>
+          </select>
+        </label>
+        <label class="checkbox"><input id="includeText" type="checkbox" checked /> 执行文字识别</label>
+        <label class="checkbox"><input id="returnMarkdown" type="checkbox" checked /> 生成排版文本</label>
+      </div>
+
+      <button id="submitBtn" class="primary" type="button" disabled>开始识别</button>
+      <div id="errorBox" class="error" hidden></div>
+    </section>
+
+    <section class="panel preview-panel">
+      <div class="section-head">
+        <h2>3. 查看结果</h2>
+        <div id="summary" class="summary">等待识别</div>
+      </div>
+      <div id="loading" class="loading" hidden>模型推理中，请稍候…</div>
+      <div id="imageWrap" class="image-wrap">
+        <canvas id="overlay" hidden></canvas>
+        <img id="preview" alt="上传图片预览" hidden />
+        <div id="placeholder" class="placeholder">上传图片后可在这里查看检测框与文字框</div>
+      </div>
+
+      <div class="tabs">
+        <button class="tab active" data-tab="texts">文字结果</button>
+        <button class="tab" data-tab="regions">图片区域</button>
+        <button class="tab" data-tab="markdown">排版文本</button>
+        <button class="tab" data-tab="json">原始 JSON</button>
+      </div>
+
+      <div class="tab-content">
+        <div id="tab-texts" class="tab-pane active">
+          <table><thead><tr><th>ID</th><th>文字</th><th>置信度</th><th>位置</th><th>所属区域</th></tr></thead><tbody id="textRows"></tbody></table>
+        </div>
+        <div id="tab-regions" class="tab-pane">
+          <table><thead><tr><th>ID</th><th>类型</th><th>置信度</th><th>坐标 [x1,y1,x2,y2]</th></tr></thead><tbody id="regionRows"></tbody></table>
+        </div>
+        <div id="tab-markdown" class="tab-pane"><pre id="markdownOutput"></pre></div>
+        <div id="tab-json" class="tab-pane"><pre id="jsonOutput"></pre></div>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
